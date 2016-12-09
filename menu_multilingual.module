@@ -1,0 +1,90 @@
+<?php
+
+/**
+ * @file
+ * Enhances the multilingual capabilities for the blocks with menus.
+ */
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\menu_multilingual\Helpers;
+
+define('MENU_MULTILINGUAL_CONTENT_TRANSLATION_FORM_SUBMIT', 'content_translation_form_language_content_settings_submit');
+define('MENU_MULTILINGUAL_NAMESPACE', 'Drupal\menu_multilingual\Helpers');
+
+/**
+ * Implements hook_block_view_BASE_BLOCK_ID_alter().
+ */
+function menu_multilingual_block_view_system_menu_block_alter(array &$build) {
+  Helpers::setBlockProcessing($build);
+}
+
+/**
+ * Implements hook_block_view_BASE_BLOCK_ID_alter().
+ */
+function menu_multilingual_block_view_menu_block_alter(array &$build) {
+  Helpers::setBlockProcessing($build);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function menu_multilingual_form_block_form_alter(&$form, FormStateInterface $form_state) {
+  /* @var \Drupal\block\Entity\Block $block; */
+  $block = $form_state->getFormObject()->getEntity();
+
+  $is_system_block = strpos($block->getPluginId(), 'system_menu_block');
+  $is_menu_block   = strpos($block->getPluginId(), 'menu_block');
+
+  if ($is_system_block === FALSE && $is_menu_block === FALSE) {
+    return FALSE;
+  }
+
+  $settings = $block->getThirdPartySettings('menu_multilingual');
+
+  $disabled_labels  = !Helpers::checkEntityType('menu_link_content');
+  $disabled_content = !Helpers::checkEntityType('node');
+
+  $multilingual = [
+    '#type'        => 'details',
+    '#open'        => TRUE,
+    '#title'       => t('Multilingual options'),
+    '#description' => t('Control visibility of menu items depending on their available translations.<br><strong>Notice:</strong> menu items with untranslated parents will also not be displayed.'),
+  ];
+
+  $multilingual['only_translated_labels'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Only display menu links with translated labels'),
+    '#default_value' => isset($settings['only_translated_labels']) ? $settings['only_translated_labels'] : 0,
+    '#disabled' => $disabled_labels,
+  ];
+  $multilingual['only_translated_content'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Only display menu links with translated content'),
+    '#default_value' => isset($settings['only_translated_content']) ? $settings['only_translated_content'] : 0,
+    '#disabled' => $disabled_content,
+  ];
+  $form['settings']['multilingual'] = $multilingual;
+  $form['#entity_builders'][] = [MENU_MULTILINGUAL_NAMESPACE, 'saveBlockSettings'];
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Applied for language_content_settings_form().
+ */
+function menu_multilingual_form_language_content_settings_form_alter(array &$form, FormStateInterface $form_state) {
+  if (in_array(MENU_MULTILINGUAL_CONTENT_TRANSLATION_FORM_SUBMIT, $form['#submit'])) {
+    $form['#submit'][] = [MENU_MULTILINGUAL_NAMESPACE, 'languageContentSettingsSubmit'];
+  }
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function menu_multilingual_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'form_language_content_settings_form_alter') {
+    $group = $implementations['menu_multilingual'];
+    unset($implementations['menu_multilingual']);
+    $implementations['menu_multilingual'] = $group;
+  }
+}
