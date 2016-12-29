@@ -185,7 +185,7 @@ class MenuMultilingualLinkTreeModifier {
     // Non-translatable entity,
     // entity with "Not specified" language,
     // entity with "Not applicable" language.
-    if (!$entity->isTranslatable()) {
+    if (!method_exists($entity, 'isTranslatable') || !$entity->isTranslatable()) {
       return TRUE;
     }
     $translation_codes = array_keys($entity->getTranslationLanguages());
